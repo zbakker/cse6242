@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>New York City Livability Index Map</title>
+    <script src="./lib/d3.v5.min.js"></script>
+    <script src="./lib/d3-dsv.min.js"></script>
+    <script src="./lib/d3-geo-projection.v2.min.js"></script>
+    <script src="./lib/d3-legend.min.js"></script>
+    <script src="./lib/d3-tip.min.js"></script>
+    <script src="./lib/topojson.v2.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            text-align: center;
+        }
+
+        #map {
+            margin: auto;
+        }
+
+        .tract {
+            stroke: #333;
+        }
+
+        #topTenList {
+            margin-top: 20px;
+        }
+
+        #regionSelector {
+            margin-top: 20px;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: white;
+            padding: 5px;
+            border: 1px solid #ccc;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>New York City Livability Index Map</h2>
+    <div id="controls">
+        <h2>Trait Importance</h2>
+        <label>Transit/Accessibility <input type="range" id="transit_index" min="0" max="1" step="0.01"></label>
+        <label>Restaurants <input type="range" id="restaurant_index" min="0" max="1" step="0.01"></label>
+        <label>Health <input type="range" id="health_index" min="0" max="1" step="0.01"></label>
+        <label>Housing <input type="range" id="housing_index" min="0" max="1" step="0.01"></label>
+        <label>Crime <input type="range" id="crime_index" min="0" max="1" step="0.01"></label>
+    </div>
+
+    <div id="regionSelector">
+        <label for="borough">Select Borough:</label>
+        <select id="borough">
+            <option value="all_boro">All Borough</option>
+            <option value="bronx">Bronx</option>
+            <option value="brooklyn">Brooklyn</option>
+            <option value="manhattan">Manhattan</option>
+            <option value="queens">Queens</option>
+            <option value="staten island">Staten Island</option>
+        </select>
+        <label for="trait">Select Trait:</label>
+        <select id="trait">
+            <option value="weightedValue">Overall Score</option>
+            <option value="transit_index">Transit/Accessibility</option>
+            <option value="restaurant_index">Restaurants</option>
+            <option value="health_index">Health</option>
+            <option value="housing_index">Housing</option>
+            <option value="crime_index">Crime</option>
+        </select>
+    </div>
+    <div id="map"></div>
+    <div id="legend"></div>
+    <div id="topTenList"></div>
+    <div id="tooltip"></div>
+
+    <script>
+        function setInitialValues() {
+            document.getElementById("transit_index").value = 0.5;
+            document.getElementById("restaurant_index").value = 0.5;
+            document.getElementById("health_index").value = 0.5;
+            document.getElementById("housing_index").value = 0.5;
+            document.getElementById("crime_index").value = 0.5;
+        }
+
+        async function loadData() {
+            const geojsonData = await d3.json("nyc_geojson.json");
+            const csvData = await d3.csv("Test_Files/Final/final_index.csv");
+
+            csvData.forEach(csvRow => {
+                const geoJsonFeature = geojsonData.features.find(feature => feature.properties.GEOID === csvRow.census_tract_geoid);
+                if (geoJsonFeature) {
+                    csvRow.BoroName = geoJsonFeature.properties.BoroName;
+                    csvRow.NTAName = geoJsonFeature.properties.NTAName;
+                }
+                csvRow.weightedValue = 0;
+            });
+
+            return { geojsonData, csvData };
+        }
+
+        let maxCalculatedValue;
+
+        async function initializeMap() {
+            const { geojsonData, csvData } = await loadData();
+            const width = 800;
+            const height = 600;
+            const svg = d3.select("#map")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const projection = d3.geoMercator()
+                .center([-74.006, 40.7128])
+                .scale(60000)
+                .translate([width / 2, height / 2]);
+
+            const path = d3.geoPath().projection(projection);
+
+            const colorScale = d3.scaleSequential(d3.interpolateViridis);
+
+            const tracts = svg.selectAll("path")
+                .data(geojsonData.features)
+                .enter()
+                .append("path")
+                .attr("class", "tract")
+                .attr("d", path)
+                .on("mouseover", showTooltip)
+                .on("mouseout", hideTooltip);
+
+            function showTooltip(d) {
+                let csvRow; 
+                csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+
+                if (csvRow) {
+                    const tooltip = d3.select("#tooltip");
+                    tooltip.style("left", (d3.event.pageX + 10) + "px")
+                        .style("top", (d3.event.pageY - 30) + "px")
+                        .style("display", "block")
+                        .html(`Borough: ${csvRow.BoroName}<br>
+                   Neighboorhood: ${csvRow.NTAName}<br>
+                   Overall Score: ${parseFloat(csvRow.weightedValue).toFixed(2)}<br>
+                   Transit/Accessibility: ${parseFloat(100 * csvRow.transit_index).toFixed(2)}<br>
+                   Restaurants: ${parseFloat(100 * csvRow.restaurant_index).toFixed(2)}<br>
+                   Health: ${parseFloat(100 * csvRow.health_index).toFixed(2)}<br>
+                   Housing: ${parseFloat(100 * csvRow.housing_index).toFixed(2)}<br>
+                   Crime: ${parseFloat(100 * csvRow.crime_index).toFixed(2)}<br>
+                   GEOID: ${csvRow.census_tract_geoid}
+                   `);
+                }
+            }
+
+            function hideTooltip() {
+                d3.select("#tooltip").style("display", "none");
+            }
+
+            const zoom = d3.zoom()
+                .scaleExtent([1, 8])
+                .on("zoom", () => {
+                    svg.selectAll("path").attr("transform", d3.event.transform);
+                });
+
+            svg.call(zoom);
+
+            d3.selectAll("input[type=range]").on("input", function (d) {
+                updateMap(d);
+                updateTopTenList(d);
+            });
+
+            function updateMap() {
+                const values = d3.selectAll("input[type=range]")
+                    .nodes()
+                    .map(node => +node.value);
+
+                maxCalculatedValue = d3.max(csvData, row => {
+                    return values.reduce((acc, val, index) => {
+                        return acc + val * row[Object.keys(row)[index + 1]];
+                    }, 0) / values.length;
+                });
+
+                tracts.style("fill", d => {
+                    let csvRow; 
+
+                    csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+
+                    if (csvRow) {
+                        const values = d3.selectAll("input[type=range]")
+                            .nodes()
+                            .map(node => +node.value);
+
+                        const weightedValue = (values.reduce((acc, val, index) => {
+                            return acc + val * csvRow[Object.keys(csvRow)[index + 1]];
+                        }, 0) / values.length) * 100 / maxCalculatedValue;
+
+                        csvRow.weightedValue = Math.min(100, Math.max(0, weightedValue));
+
+                        return colorScale(csvRow.weightedValue / 100); 
+                    } else {
+                        return "gray";
+                    }
+                });
+            }
+
+            const legend = d3.select("#legend")
+                .append("svg")
+                .attr("class", "legend")
+                .attr("width", 500)
+                .attr("height", 100)
+                .append("g")
+                .attr("transform", "translate(5,20)");
+
+            const defs = legend.append("defs");
+            const linearGradient = defs.append("linearGradient")
+                .attr("id", "linear-gradient")
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "100%")
+                .attr("y2", "0%");
+
+            linearGradient.append("stop")
+                .attr("offset", "0%")
+                .style("stop-color", colorScale(0));
+
+            linearGradient.append("stop")
+                .attr("offset", "100%")
+                .style("stop-color", colorScale(1));
+
+            legend.append("rect")
+                .attr("width", 400)
+                .attr("height", 20)
+                .style("fill", "url(#linear-gradient)");
+
+            const legendAxis = d3.axisBottom()
+                .scale(d3.scaleLinear().range([0, 400]).domain([0, 100])); 
+
+            legend.append("g")
+                .attr("class", "legend-axis")
+                .attr("transform", "translate(0,20)")
+                .call(legendAxis);
+
+            setInitialValues();
+            updateMap();
+
+            d3.select("#borough").on("change", updateTopTenList);
+            d3.select("#trait").on("change", updateTopTenList);
+
+            updateTopTenList();
+
+            function updateTopTenList() {
+                console.log("Updating top ten list");
+                const borough = document.getElementById("borough").value;
+                const trait = document.getElementById("trait").value;
+                console.log("Borough:", borough);
+                console.log("Trait:", trait);
+
+                const filteredData = csvData.filter(row => {
+                    if (borough === "all_boro") {
+                        return true;
+                    } else {
+                        return row && row.BoroName && row.BoroName.trim().toLowerCase() === borough;
+                    }
+                });
+                tracts.style("fill", d => {
+                let csvRow;
+                csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+
+                if (csvRow) {
+                    const values = d3.selectAll("input[type=range]")
+                        .nodes()
+                        .map(node => +node.value);
+
+                    const weightedValue = (values.reduce((acc, val, index) => {
+                        return acc + val * csvRow[Object.keys(csvRow)[index + 1]];
+                    }, 0) / values.length) * 100 / maxCalculatedValue;
+
+                    csvRow.weightedValue = Math.min(100, Math.max(0, weightedValue));
+
+                    const isBoroughSelected = filteredData.some(selectedRow => selectedRow.census_tract_geoid === csvRow.census_tract_geoid);
+
+                    return isBoroughSelected ? colorScale(csvRow.weightedValue / 100) : "gray";
+                } else {
+                    return "gray";
+                }
+            });
+                filteredData.sort((a, b) => b[trait] - a[trait]);
+                console.log(filteredData)
+                const topTenList = d3.select("#topTenList");
+                topTenList.html("<h3>Top Ten List</h3>");
+                for (let i = 0; i < Math.min(10, filteredData.length); i++) {
+                    if (trait === "weightedValue") {
+                        topTenList.append("p").html(`Borough: ${filteredData[i].BoroName}, Neighboorhood: ${filteredData[i].NTAName}, Score: ${parseFloat(filteredData[i][trait]).toFixed(2)}`);
+                    } else {
+                        topTenList.append("p").html(`Borough: ${filteredData[i].BoroName}, Neighboorhood: ${filteredData[i].NTAName}, Score: ${parseFloat(100 * filteredData[i][trait]).toFixed(2)}`);
+                    }
+                }
+            }
+        }
+        initializeMap();
+    </script>
+</body>
+
+</html>

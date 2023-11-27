@@ -2,8 +2,8 @@ Project Title:
     New York City Livability Index 
 Project Description: 
     This project looks at 5 factors and uses user preference to calculate a livability score for New York City. 
-    Those five factors are crime, restaurants, housing, health, and transit.
-    The restaurant index is build based on factors such as violation count, amount of restaurants in a given census tract, how many times a restaurant was forced to close, and the average health code grade a restaurant got.  Similarly, the crime index is formulated based on three types of violations: Felony, Violation, and Misdemeanor. Health Index is built based on subfactors such as Water inspection results, Rodent inspection results, # of Influenza/Pneumonia admissions and # of EMS incidents. Our hypothesis is the last two subfactors are proxy to access to health care.		
+    Those five factors are restaurants, crime, housing, health, and transit.
+    The restaurant index is build based on factors such as violation count, amount of restaurants in a given census tract, how many times a restaurant was forced to close, and the average health code grade a restaurant got.  Similarly, the crime index is formulated based on three types of violations: Felony, Violation, and Misdemeanor. Health Index is built based on subfactors such as Water inspection results, Rodent inspection results, # of Influenza/Pneumonia admissions and # of EMS incidents. Our hypothesis is the last two subfactors are proxy to access to health care. The transit index combines data on bus subway stations, covered bus stops, and public bicycle parking, with more weight given to subway stations and less weight given to bicycle parking.	
     ### ADD MORE HERE 
 
 TRAITS CALCULATION AND INDEX CREATION

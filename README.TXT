@@ -24,7 +24,8 @@ TRAITS CALCULATION AND INDEX CREATION
 		3a. to do a fresh run, set RAW_RUN to True and run all. This will take raw data located in the path folder and does a clean run.  This will output a CSV file inside the test_file + Final folder. 
 		3b. to do a run based on already pre-processed data, set RAW_RUN to False and run all. This will pull in preprocessed data located inside the test_file path. This will output a CSV file inside the test_file + Final folder.
 		NOTE: it is recommended to run using pre-processed data to save on run time.
-		4. Follow the Visualization Execution steps in order to view the visual.  
+		4. Complete the transformation on the data results first by running the z_score.py program and then box_cox program.
+		5. Follow the Visualization Execution steps in order to view the visual.  
 
 VISUALIZATION INITIALIZATION
 	EXECUTION

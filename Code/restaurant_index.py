@@ -1,12 +1,12 @@
     # %%
-def restaurant_index(resturant_csv):
+def restaurant_index(restaurant_csv):
     import pandas as pd
     import numpy as np
     # !pip install census_geocoder
     from geoid_function import geoid_function
     from sklearn.preprocessing import MinMaxScaler
 
-    df = pd.read_csv(resturant_csv)
+    df = pd.read_csv(restaurant_csv)
     df_lat_long_only=df[["Latitude",'Longitude']]
     df_lat_long_only= df_lat_long_only.loc[(df_lat_long_only['Latitude']>0.0)].drop_duplicates()
     # test=df_lat_long_only.head(10)

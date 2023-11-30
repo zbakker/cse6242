@@ -164,8 +164,8 @@
         }
 
         async function loadData() {
-            const geojsonData = await d3.json("nyc_geojson.json");
-            const csvData = await d3.csv("Test_Files/Final/final_index.csv");
+            const geojsonData = await d3.json("Code/nyc_geojson.json");
+            const csvData = await d3.csv("Code/Test_Files/Final/final_index.csv");
 
             csvData.forEach(csvRow => {
                 const geoJsonFeature = geojsonData.features.find(feature => feature.properties.GEOID === csvRow.census_tract_geoid);

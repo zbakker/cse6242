@@ -3,7 +3,7 @@ import numpy as np
 from scipy import stats
 
 
-file_path = "final_index.csv"
+file_path = "Final/final_index.csv"
 df = pd.read_csv(file_path)
 
 exclude_columns = ['census_tract_geoid', 'crime_index', 'transit_index', 'health_index', 'housing_index']  

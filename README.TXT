@@ -33,9 +33,9 @@ VISUALIZATION INITIALIZATION
 		2. In the command prompt terminal, type in "python -m http.server 8000"
 		3. In a web browser, type in  "localhost:8000"
 		4. On the webpage click on "Code/"
-		5. On the page click on "NYC_Livablity_Index.html"
+		5. On the page click on "NYC_Livability_Index.html"
 
-	WEBSITE LINK IF USER DOES NOT WANT TO EXECUT
+	WEBSITE LINK IF USER DOES NOT WANT TO EXECUTE
 		1. https://acreiners.github.io/NYC_Livability_Index_2/
 
 CREDIT: Zoë Bakker, Mariana Fuentes, Jared Kaplan, Ethiraj Purushothaman, Alex Reiners, Salina Sok 

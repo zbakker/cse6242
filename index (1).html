@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>New York City Livability Index Map</title>
+    <script src="./lib/d3.v5.min.js"></script>
+    <script src="./lib/d3-dsv.min.js"></script>
+    <script src="./lib/d3-geo-projection.v2.min.js"></script>
+    <script src="./lib/d3-legend.min.js"></script>
+    <script src="./lib/d3-tip.min.js"></script>
+    <script src="./lib/topojson.v2.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            text-align: center;
+        }
+
+        #container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between; 
+            margin: 10px;
+        }
+
+        #left {
+            display: flex;
+            flex-direction: column;
+            flex: 1; 
+        }
+
+        #map {
+            margin-bottom: 10px; 
+        }
+
+        #legend {
+            margin-top: 10px;
+        }
+
+        .tract {
+            stroke: #333;
+        }
+
+        #topTenList {
+            flex: 1;
+            margin: 10px;
+        }
+
+        #regionSelector {
+            margin-top: 20px;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: white;
+            padding: 5px;
+            border: 1px solid #ccc;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>New York City Livability Index Map</h1>
+    <p> The purpose of this tool is allow a user to adjust the importance of 5 selected traits in order to develop their own livabilty index based on 
+        their unique circumstances and preferences.</p>
+    <h2> Instructions </h2>
+    <p> Each trait can be adjusted in weight on a scale from 0 to 100. </p>
+    <p> Select Borough: Select one borough in the city or all the boroughs to see their overall score or trait value.</p>
+    <p> Select Trait: Overall Score (calculated based on trait values and weights applied to them) or one of the five traits. </p>
+    <div id="controls">
+        <h2>Trait Importance</h2>
+        <label>Transit/Accessibility <input type="range" id="transit_index" min="0" max="1" step="0.01"></label>
+        <label>Restaurant Safety <input type="range" id="restaurant_index" min="0" max="1" step="0.01"></label>
+        <label>Health <input type="range" id="health_index" min="0" max="1" step="0.01"></label>
+        <label>Housing <input type="range" id="housing_index" min="0" max="1" step="0.01"></label>
+        <label>Safety <input type="range" id="crime_index" min="0" max="1" step="0.01"></label>
+    </div>
+
+    <div id="regionSelector">
+        <label for="borough">Select Borough:</label>
+        <select id="borough">
+            <option value="all_boro">All Boroughs</option>
+            <option value="bronx">Bronx</option>
+            <option value="brooklyn">Brooklyn</option>
+            <option value="manhattan">Manhattan</option>
+            <option value="queens">Queens</option>
+            <option value="staten island">Staten Island</option>
+        </select>
+        <label for="trait">Select Trait:</label>
+        <select id="trait">
+            <option value="weightedValue">Overall Score</option>
+            <option value="transit_index">Transit/Accessibility</option>
+            <option value="restaurant_index">Restaurant Safety</option>
+            <option value="health_index">Health</option>
+            <option value="housing_index">Housing</option>
+            <option value="crime_index">Safety</option>
+        </select>
+    </div>
+    <div id="container">
+        <div id="left">
+            <div id="map"></div>
+            <div id="legend"></div>
+        </div>
+        <div id="topTenList"></div>
+    </div>
+    <div id="tooltip"></div>
+
+    <h3> Trait Weighting Process </h3>
+    <p> The value for each trait was calculated using data and assigned weights.
+    Factors included in each trait is listed below. </p>
+    <p> Transit: Subway Stations, Covered Bus Stops, and Public Bicycle Parking </p>
+    <p> Restaurant Safety: Number of Restaurants, Violations, Closures, Health Grade </p>
+    <p> Safety: Felonies, Misdemeanors, Violations </p>
+    <p> Health: Influenza/Pneumonia Admissions, EMS Incidents, Water Inspections, Rodent Inspections </p>
+    <p> Housing: Average Rent Prices, Housing Violations </p>
+    <h3> Data Sources: </h3>
+    <p> New York City Open Data 2011. NYC Health + Hospitals Patient Care Locations (2011). New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/Health/NYC-Health-Hospitals-patient-care-locations-2011/f7b6-v6v3/data"> Link </a> </p>
+    <p> MTA New York City Transit 2015. MTA NYCT Sub-way Entrances and Exits - 2015. MTA New York City Transit. 
+    <a href = "https://data.ny.gov/Transportation/MTA-NYCT-Subway-Entrances-and-Exits-2015/i9wp-a4ja"> Link </a></p>
+    <p> mygeodata.cloud 2019. OpenStreetMap Restaurants Data - New York County, New York, United States. mygeodata.cloud.
+    <a href = "https://mygeodata.cloud/data/download/osm/restaurants/united-states-of-america--new-york/new-york-county/new-york"> Link </a></p>
+    <p> New York City Open Data 2020. Emergency Department Visits and Admissions for Influenza-Like Illnesses (ILI) - 2020. New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/Health/Emergency-Department-Visits-and-Admissions-for-Inf/2nwg-uqyg"> Link </a></p>
+    <p> Centers for Disease Control and Prevention 2020. PLACES: Local Data for Better Health (County Data) - 2020. Centers for Disease Control and Prevention.
+    <a href = "https://data.cdc.gov/500-Cities-Places/PLACES-Local-Data-for-Better-Health-County-Data-20/swc5-untb"> Link </a></p>
+    <p> United States Census Bureau 2021. New York City Housing and Vacancy Survey (NYCHVS) Microdata - 2021. United States Census Bureau. 
+    <a href = "https://www.census.gov/data/datasets/2021/demo/nychvs/microdata.html"> Link </a></p>
+    <p> New York City Open Data 2022. Revised Notice of Property Value (RNOPV) Data. New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/City-Government/Revised-Notice-of-Property-Value-RNOPV-/8vgb-zm6e"> Link </a></p>
+    <p> New York City Open Data 2023. Bicycle Parking Data. New York City Open Data.
+    <a href = "https://data.cityofnewyork.us/Transportation/Bicycle-Parking/yh4a-g3fj"> Link </a></p>
+    <p> New York City Open Data 2023. Bus Stop Shelters Data. New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/Transportation/Bus-Stop-Shelters/qafz-7myz"> Link </a></p>
+    <p> coredata.nyc 2023. CoreData NYC - New York City’s Public Data. coredata.nyc. 
+    <a href = "https://coredata.nyc/"> Link </a></p>
+    <p> New York City Open Data 2023. Crime Map Data. New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/Public-Safety/Crime-Map-/5jvd-shfj?category=Public-Safety&view_name=Crime-Map-"> Link </a></p>
+    <p> New York City Open Data 2023. DOHMH New York City Restaurant Inspection Results. New York City Open Data.
+    <a href = "https://data.cityofnewyork.us/Health/DOHMH-New-York-City-Restaurant-Inspection-Results/43nn-pn8j"> Link </a></p>
+    <p> New York City Open Data 2023. EMS Incident Dispatch Data. New York City Open Data.
+    <a href = "https://data.cityofnewyork.us/Public-Safety/EMS-Incident-Dispatch-Data/76xm-jjuj"> Link </a></p>
+    <p> New York City Open Data 2023. Housing Maintenance Code Violations. New York City Open Data.
+    <a href = "https://data.cityofnewyork.us/Housing-Development/Housing-Maintenance-Code-Violations/wvxf-dwi5"> Link </a></p>
+    <p> New York City Open Data 2023. Local Law 44 Building Data. New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/Housing-Development/Local-Law-44-Building/hu6m-9cfi"> Link </a></p>
+    <p> New York City Department of City Planning 2023. NYC Housing Development Project Data. New York City Department of City Planning. 
+    <a href = "https://www.nyc.gov/site/planning/data-maps/open-data/dwn-housing-database.page#housingdevelopmentproject"> Link </a></p>
+    <p> New York City Open Data 2023. Rodent Inspection Data. New York City Open Data. 
+    <a href = "https://data.cityofnewyork.us/Health/Rodent-Inspection/p937-wjvj"> Link </a></p>
+    <p> New York City Open Data 2023. Self-Reported Drinking Water Tank Inspection Results. New York City Open Data.
+    <a href = "https://data.cityofnewyork.us/Health/Self-Reported-Drinking-Water-Tank-Inspection-Resul/gjm4-k24g"> Link </a></p>
+    <h3> CSE 6242 - Fall 2023 Team 104 Project </h3>
+    <h3> Team Members: Zoë Bakker, Mariana Fuentes, Jared Kaplan, Ethiraj Purushothaman, Alex Reiners, Salina Sok </h3>
+
+    <script>
+        function setInitialValues() {
+            document.getElementById("transit_index").value = 0.5;
+            document.getElementById("restaurant_index").value = 0.5;
+            document.getElementById("health_index").value = 0.5;
+            document.getElementById("housing_index").value = 0.5;
+            document.getElementById("crime_index").value = 0.5;
+        }
+
+        async function loadData() {
+            const geojsonData = await d3.json("Data/nyc_geojson.json");
+            const csvData = await d3.csv("Data/final_index.csv");
+
+            csvData.forEach(csvRow => {
+                const geoJsonFeature = geojsonData.features.find(feature => feature.properties.GEOID === csvRow.census_tract_geoid);
+                if (geoJsonFeature) {
+                    csvRow.BoroName = geoJsonFeature.properties.BoroName;
+                    csvRow.NTAName = geoJsonFeature.properties.NTAName;
+                }
+                csvRow.weightedValue = 0;
+            });
+
+            return { geojsonData, csvData };
+        }
+
+        let maxCalculatedValue;
+
+        async function initializeMap() {
+            const { geojsonData, csvData } = await loadData();
+            const width = 800;
+            const height = 600;
+            const svg = d3.select("#map")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const projection = d3.geoMercator()
+                .center([-74.006, 40.7128])
+                .scale(60000)
+                .translate([width / 2, height / 2]);
+
+            const path = d3.geoPath().projection(projection);
+
+            const colorScale = d3.scaleThreshold()
+                            .domain([0, 0.2, 0.4, 0.6, 0.8])
+                              .range(['#0072b2', '#e69f00', '#56b4e9', '#009e73', '#f0e442'])
+
+            const tracts = svg.selectAll("path")
+                .data(geojsonData.features)
+                .enter()
+                .append("path")
+                .attr("class", "tract")
+                .attr("d", path)
+                .on("mouseover", showTooltip)
+                .on("mouseout", hideTooltip);
+
+            function showTooltip(d) {
+                let csvRow; 
+                csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+
+                if (csvRow) {
+                    const tooltip = d3.select("#tooltip");
+                    tooltip.style("left", (d3.event.pageX + 10) + "px")
+                        .style("top", (d3.event.pageY - 30) + "px")
+                        .style("display", "block")
+                        .html(`Borough: ${csvRow.BoroName}<br>
+                   Neighborhood: ${csvRow.NTAName}<br>
+                   Overall Score: ${parseFloat(csvRow.weightedValue).toFixed(2)}<br>
+                   Transit/Accessibility: ${parseFloat(100 * csvRow.transit_index).toFixed(2)}<br>
+                   Restaurant Safety: ${parseFloat(100 * csvRow.restaurant_index).toFixed(2)}<br>
+                   Health: ${parseFloat(100 * csvRow.health_index).toFixed(2)}<br>
+                   Housing: ${parseFloat(100 * csvRow.housing_index).toFixed(2)}<br>
+                   Safety: ${parseFloat(100 * csvRow.crime_index).toFixed(2)}<br>
+                   GEOID: ${csvRow.census_tract_geoid}
+                   `);
+                }
+            }
+
+            function hideTooltip() {
+                d3.select("#tooltip").style("display", "none");
+            }
+
+            const zoom = d3.zoom()
+                .scaleExtent([1, 8])
+                .on("zoom", () => {
+                    svg.selectAll("path").attr("transform", d3.event.transform);
+                });
+
+            svg.call(zoom);
+
+            d3.selectAll("input[type=range]").on("input", function (d) {
+                const trait = document.getElementById("trait").value;
+                if (trait === "weightedValue") {
+                    updateMap(d);
+                    updateTopTenList(d);
+                }
+            });
+
+            function updateMap() {
+                const values = d3.selectAll("input[type=range]")
+                    .nodes()
+                    .map(node => +node.value);
+
+                const borough = document.getElementById("borough").value;
+                const trait = document.getElementById("trait").value;
+
+                const filteredData = csvData.filter(row => {
+                    if (borough === "all_boro") {
+                        return true;
+                    } else {
+                        return row && row.BoroName && row.BoroName.trim().toLowerCase() === borough;
+                    }
+                });
+                console.log(filteredData)
+                maxCalculatedValue = d3.max(filteredData, row => {
+                    return values.reduce((acc, val, index) => {
+                        return acc + val * row[Object.keys(row)[index + 1]];
+                    }, 0) / values.length;
+                });
+                if (trait === "weightedValue") {
+                    tracts.style("fill", d => {
+                        let csvRow;
+                        csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+
+                        if (csvRow) {
+                            if (borough === "all_boro" || csvRow.BoroName.trim().toLowerCase() === borough) {
+                                const weightedValue = (values.reduce((acc, val, index) => {
+                                    return acc + val * csvRow[Object.keys(csvRow)[index + 1]];
+                                }, 0) / values.length) * 100 / maxCalculatedValue;
+
+                                csvRow.weightedValue = Math.min(100, Math.max(0, weightedValue));
+
+                                return colorScale(csvRow.weightedValue / 100);
+                            } else {
+                                return "gray";
+                            }
+                        } else {
+                            return "gray";
+                        }
+                    });
+                } else {
+                    tracts.style("fill", d => {
+                        let csvRow;
+                        csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+                        if (csvRow) {
+                            if (borough === "all_boro" || csvRow.BoroName.trim().toLowerCase() === borough) {
+                                const traitValue = csvRow[trait];
+                                return colorScale(traitValue);
+                            } else {
+                                return "gray"
+                            }
+                        } else {
+                            return "gray"
+                        } 
+                    });
+                }
+            }
+
+            const legend = d3.select("#legend")
+                .append("svg")
+                .attr("class", "legend")
+                .attr("width", 500)
+                .attr("height", 60) 
+                .append("g")
+                .attr("transform", "translate(5,10)");
+
+            const legendBlocks = legend.selectAll("rect")
+                .data(colorScale.range())
+                .enter().append("rect")
+                .attr("x", (d, i) => i * 100) 
+                .attr("width", 100) 
+                .attr("height", 20)
+                .style("fill", d => d);
+
+            const legendLabels = legend.selectAll("text")
+                .data(colorScale.domain())
+                .enter().append("text")
+                .attr("x", (d, i) => i * 100 + 50) 
+                .attr("y", 40)
+                .style("text-anchor", "middle")
+                .text(d => d * 100 + "%"); 
+
+            setInitialValues();
+
+
+            d3.select("#borough").on("change", function(d) {
+                  updateTopTenList(d);
+                  updateMap(d);
+            });
+            d3.select("#trait").on("change", function(d) {
+                  updateTopTenList(d);
+                  updateMap(d);
+            });
+            updateMap();
+            updateTopTenList();
+
+            function updateTopTenList() {
+                console.log("Updating top ten list");
+                const borough = document.getElementById("borough").value;
+                const trait = document.getElementById("trait").value;
+                console.log("Borough:", borough);
+                console.log("Trait:", trait);
+                const values = d3.selectAll("input[type=range]")
+                    .nodes()
+                    .map(node => +node.value);
+
+                const filteredData = csvData.filter(row => {
+                    if (borough === "all_boro") {
+                        return true;
+                    } else {
+                        return row && row.BoroName && row.BoroName.trim().toLowerCase() === borough;
+                    }
+                });
+                maxCalculatedValue = d3.max(filteredData, row => {
+                    const weightedValues = values.map((val, index) => {
+                        return val * row[Object.keys(row)[index + 1]];
+                    });
+                    const averageWeightedValue = weightedValues.reduce((acc, val) => acc + val, 0) / weightedValues.length;
+                    return averageWeightedValue;
+                });
+                console.log(maxCalculatedValue)
+
+                tracts.style("fill", d => {
+                    let csvRow;
+                    csvRow = csvData.find(row => row.census_tract_geoid === d.properties.GEOID);
+
+                    if (csvRow) {
+                        if (borough === "all_boro" || csvRow.BoroName.trim().toLowerCase() === borough) {
+                            const averageWeightedValue = (values.reduce((acc, val, index) => {
+                                return acc + val * csvRow[Object.keys(csvRow)[index + 1]];
+                            }, 0) / values.length) * 100 / maxCalculatedValue;
+
+                            csvRow.weightedValue = Math.min(100, Math.max(0, averageWeightedValue));
+
+                            return colorScale(csvRow.weightedValue / 100);
+                        } else {
+                            return "gray";
+                        }
+                    } else {
+                        return "gray";
+                    }
+                });  
+            
+                filteredData.sort((a, b) => b[trait] - a[trait]);
+                console.log(filteredData)
+                const topTenList = d3.select("#topTenList");
+                topTenList.html("<h3>Top Ten List</h3>");
+                for (let i = 0; i < Math.min(10, filteredData.length); i++) {
+                    if (trait === "weightedValue") {
+                        topTenList.append("p").html(`Borough: ${filteredData[i].BoroName}, Neighborhood: ${filteredData[i].NTAName}, Score: ${parseFloat(filteredData[i][trait]).toFixed(2)}`);
+                    } else {
+                        topTenList.append("p").html(`Borough: ${filteredData[i].BoroName}, Neighborhood: ${filteredData[i].NTAName}, Score: ${parseFloat(100 * filteredData[i][trait]).toFixed(2)}`);
+                    }
+                }
+            }
+        }
+        initializeMap();
+    </script>
+</body>
+
+</html>
